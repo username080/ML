@@ -38,10 +38,10 @@ class BlackjackEnv:# state = [dealer_sum,dealer_usable_ace,player_sum,player_usa
         self.state = state
         return state # buradan sonra agent politikaya göre aksiyon seçecek
 
-    def do_action(self,state,action): # 0 stick, 1 hit
+    def do_action(self,state,action): # 1 stick, 2 hit
         done = False
         reward = 0
-        if action:
+        if action == 2:
             new = self.sample(1)
             new = new[0]
             if new == 1 and state[2] < 11:
@@ -63,6 +63,7 @@ class BlackjackEnv:# state = [dealer_sum,dealer_usable_ace,player_sum,player_usa
 
         if done:
             if state[2] > 21:
+                state[2] = 22
                 reward = -1
                 return state, reward, done
              # artık oyuncu sabit rewardu buradan döndürebilirim
@@ -97,88 +98,103 @@ class BlackjackEnv:# state = [dealer_sum,dealer_usable_ace,player_sum,player_usa
 
             return state, reward, done 
 
-class MCagent:
-    def __init__(self,discount = 1, epsilon = 0.2):
+
+#state defaultdict dönüyor!
+
+
+class off_policy_agent:
+    def __init__(self, discount=1, epsilon=0.2):
+        self.target_policy = defaultdict(lambda: 1)  # Always pick action 2 initially
         self.discount = discount
         self.epsilon = epsilon
-        self.policy = defaultdict(lambda: np.random.randint(0,2))
-
         self.Q = defaultdict(float)
-        self.returns = defaultdict(list) #[total_reward,visit_count]
-
-    def choose_action(self,state):
-        rand = np.random.random()
-        state_key = (state[0],state[1],state[2],state[3])
-
-        if rand < 1 - self.epsilon:
-            return self.policy[state_key]
-        
-        return np.random.randint(0,2)
+        self.C = defaultdict(float)
     
-    def update(self,episode):#episode = [state,reward,action]
+    def get_behavior_prob(self, state_key, action):
+        greedy = self.target_policy[state_key]
+        if action == greedy:
+            return 1 - self.epsilon + self.epsilon / 2 # b_policy eğer greedy seçerse 0.9 prob
+        else:
+            return self.epsilon / 2 # eğer explore ederse 0.1 prob
+    
+    def choose_action(self, state):
+        state_key = (state[0], state[1], state[2], state[3])
+        greedy = self.target_policy[state_key]
+        if np.random.random() < 1 - self.epsilon + self.epsilon / 2:
+            return greedy
+        else:
+            return np.random.choice([a for a in [1, 2] if a != greedy])
+    
+    def update(self, episode):
         G = 0
-        for state,reward,action in reversed(episode):
-            state_key = (state[0],state[1],state[2],state[3])
-            sa_pair = (state_key,action)
-            G = reward + G * self.discount 
-            self.returns[sa_pair].append(G)
-            self.Q[sa_pair] = np.mean(self.returns[sa_pair])
-            q_vals = [self.Q[sa_pair] for a in [0,1]]
-            best_action = int(np.argmax(q_vals))
-            self.policy[state_key] = best_action
+        W = 1
+        for state, action, reward in reversed(episode):
+            state_key = (state[0], state[1], state[2], state[3])
+            sa_pair = (state_key, action)
+            G = reward + self.discount * G
+            self.C[sa_pair] += W
+            self.Q[sa_pair] += (W / self.C[sa_pair]) * (G - self.Q[sa_pair])
+            # Update target policy to be greedy
+            q1 = self.Q[(state_key, 1)]
+            q2 = self.Q[(state_key, 2)]
+            self.target_policy[state_key] = 1 if q1 >= q2 else 2# ++
+            # Importance sampling ratio
+            if action != self.target_policy[state_key]:
+                break  # 
+            W = W / self.get_behavior_prob(state_key, action)
+            if W == 0:
+                break  # Can stop early if W hits zero  
 
-    #eğer first visit yapmak istersen bir visited seti tutucaksın ve G yi güncelledikten sonra onu kontrol edeceksin ama gerek yok şuan
 
 
-num_episodes = 500000
 
 env = BlackjackEnv()
-agent = MCagent()
+agent = off_policy_agent(epsilon=0.2)
 
+num_episode = 1000000
 
-
-for _ in tqdm.tqdm(range(num_episodes)):
-    done = False
-    state = env.get_start_values()
+for _ in tqdm.tqdm(range(num_episode)):
     episode = []
-    while not done: 
-        action = agent.choose_action(state)
-        next_state, reward, done = env.do_action(state,action)
-        episode.append((state,reward,action))
-        state = next_state
+    states = env.get_start_values()
+    done = False
+    while not done:
+        action = agent.choose_action(states)
+        next, reward, done = env.do_action(states, action)
+        episode.append(((states[0], states[1], states[2], states[3]), action, reward))
+        states = next
 
     agent.update(episode)
 
+# --- Policy Visualization ---
+def plot():
+    player_sums = np.arange(12, 22)
+    dealer_cards = np.arange(1, 11)
+    policy_usable_ace = np.zeros((len(player_sums), len(dealer_cards)))
+    policy_no_usable_ace = np.zeros((len(player_sums), len(dealer_cards)))
 
-#-------------------------------------------------------------
-player_sums = np.arange(12, 22)
-dealer_cards = np.arange(1, 11)
-policy_usable_ace = np.zeros((len(player_sums), len(dealer_cards)))
-policy_no_usable_ace = np.zeros((len(player_sums), len(dealer_cards)))
+    for pi, ps in enumerate(player_sums):
+        for di, dc in enumerate(dealer_cards):
+            key_ua = (dc, 0, ps, 1)
+            key_nua = (dc, 0, ps, 0)
+            policy_usable_ace[pi, di] = agent.target_policy[key_ua]
+            policy_no_usable_ace[pi, di] = agent.target_policy[key_nua]
 
-for pi, ps in enumerate(player_sums):
-    for di, dc in enumerate(dealer_cards):
-        # With usable ace
-        key_ua = (dc, 0, ps, 1)
-        policy_usable_ace[pi, di] = agent.policy[key_ua]
-        # Without usable ace
-        key_nua = (dc, 0, ps, 0)
-        policy_no_usable_ace[pi, di] = agent.policy[key_nua]
+    fig, ax = plt.subplots(1, 2, figsize=(14,6))
+    im0 = ax[0].imshow(policy_usable_ace, cmap="YlGn", origin='lower', aspect='auto',
+                extent=[1, 10, 12, 21])
+    ax[0].set_title("Policy with Usable Ace (2=Hit, 1=Stick)")
+    ax[0].set_xlabel("Dealer Showing")
+    ax[0].set_ylabel("Player Sum")
+    fig.colorbar(im0, ax=ax[0], ticks=[1,2])
 
-fig, ax = plt.subplots(1, 2, figsize=(14,6))
-im0 = ax[0].imshow(policy_usable_ace, cmap="YlGn", origin='lower', aspect='auto',
-                   extent=[1, 10, 12, 21])
-ax[0].set_title("Policy with Usable Ace (1=Hit, 0=Stick)")
-ax[0].set_xlabel("Dealer Showing")
-ax[0].set_ylabel("Player Sum")
-fig.colorbar(im0, ax=ax[0], ticks=[0,1])
+    im1 = ax[1].imshow(policy_no_usable_ace, cmap="YlGn", origin='lower', aspect='auto',
+                extent=[1, 10, 12, 21])
+    ax[1].set_title("Policy without Usable Ace (2=Hit, 1=Stick)")
+    ax[1].set_xlabel("Dealer Showing")
+    ax[1].set_ylabel("Player Sum")
+    fig.colorbar(im1, ax=ax[1], ticks=[1,2])
 
-im1 = ax[1].imshow(policy_no_usable_ace, cmap="YlGn", origin='lower', aspect='auto',
-                   extent=[1, 10, 12, 21])
-ax[1].set_title("Policy without Usable Ace (1=Hit, 0=Stick)")
-ax[1].set_xlabel("Dealer Showing")
-ax[1].set_ylabel("Player Sum")
-fig.colorbar(im1, ax=ax[1], ticks=[0,1])
+    plt.tight_layout()
+    plt.savefig("b.png")
 
-plt.tight_layout()
-plt.savefig("a.png")
+plot()
