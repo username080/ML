@@ -1,0 +1,5 @@
+https://arxiv.org/html/2505.17342v1?utm_source=chatgpt.com
+https://people.eecs.berkeley.edu/~russell/papers/icml99-shaping.pdf?utm_source=chatgpt.com
+https://deeprlcourse.github.io/course_notes/model-based/?utm_source=chatgpt.com
+https://arxiv.org/abs/2404.16879?utm_source=chatgpt.com
+https://gymnasium.farama.org/tutorials/training_agents/action_masking_taxi/?utm_source=chatgpt.com
