@@ -91,8 +91,8 @@ class agent:#losslara odaklan
                     critic_loss = tf.reduce_mean(tf.square(returns_b - critic_value))
                     #print("critic",critic_loss)
 
-                    # Total loss
-                    total_loss = actor_loss + 0.5 * critic_loss - self.beta * entropy
+                    # Total loss   critic - entropyi + yaptım(original paperda öyle gösteriyodu)
+                    total_loss = actor_loss - 0.5 * critic_loss + self.beta * entropy
 
                 # Apply gradients
                 all_vars = self.actor.trainable_variables + self.critic.trainable_variables
