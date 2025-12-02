@@ -3,3 +3,4 @@ https://people.eecs.berkeley.edu/~russell/papers/icml99-shaping.pdf?utm_source=c
 https://deeprlcourse.github.io/course_notes/model-based/?utm_source=chatgpt.com
 https://arxiv.org/abs/2404.16879?utm_source=chatgpt.com
 https://gymnasium.farama.org/tutorials/training_agents/action_masking_taxi/?utm_source=chatgpt.com
+https://arxiv.org/html/2404.11831v2  //JointPPO: Diving Deeper into the Effectiveness of PPO in Multi-Agent Reinforcement Learning
