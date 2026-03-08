@@ -1,3 +1,0 @@
-çizgiyi karar vermemde çekerim. agentı environmenttan ayıran çizginin sınırı agentın öğrenmeyi bitirdiği yer olmalı başka bir deyişle agentta sadece öğrenme karar verme gibi bileşenleri içermeli onun dışında kalan sinirler kaslar
-ya da araba kısaca dışarıdaki her şey environmente girer. agentın bir şeyi değiştirip değiştiremediğine göre bu çizgiye karar verilir. kısaca egentın değiştirebileceği, öğrenebileceği,
-karar verebileceği şeyler agentta olur ama dışarıdan gelen veriler ve dışarıya etki eden şeyler environmentte. ama bu soyutlama probleme göre değiştebilir. yani temelde özgürdür ama belli değişkenlere göre karar verilir.
